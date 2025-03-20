@@ -15,14 +15,19 @@ volatile int count = 0;
 
 bool sensor1_triggered = false;
 bool sensor2_triggered = false;
+unsigned long sensor1_time = 0;
+unsigned long sensor2_time = 0;
+const unsigned long RESET_TIME = 3000; // 3 seconds timeout
 
 void checkSensors() {
     int distance1 = sonar1.ping_cm();
     int distance2 = sonar2.ping_cm();
+    unsigned long current_time = millis();
     
     // Detect object within threshold
     if (distance1 > 0 && distance1 < THRESHOLD && !sensor1_triggered) {
         sensor1_triggered = true;  // Mark sensor1 as triggered first
+        sensor1_time = current_time;
     }
     if (distance2 > 0 && distance2 < THRESHOLD && sensor1_triggered && !sensor2_triggered) {
         sensor2_triggered = true;  // Mark sensor2 as triggered AFTER sensor1
@@ -34,12 +39,21 @@ void checkSensors() {
     // Reverse detection (sensor2 first, then sensor1)
     if (distance2 > 0 && distance2 < THRESHOLD && !sensor2_triggered) {
         sensor2_triggered = true;
+        sensor2_time = current_time;
     }
     if (distance1 > 0 && distance1 < THRESHOLD && sensor2_triggered && !sensor1_triggered) {
         sensor1_triggered = true;
         count--;  
         Serial.println("Decremented Count: " + String(count));
         sensor1_triggered = sensor2_triggered = false;
+    }
+
+    // Reset triggers if no second trigger within 3 seconds
+    if (sensor1_triggered && (current_time - sensor1_time > RESET_TIME)) {
+        sensor1_triggered = false;
+    }
+    if (sensor2_triggered && (current_time - sensor2_time > RESET_TIME)) {
+        sensor2_triggered = false;
     }
 }
 
@@ -51,3 +65,4 @@ void loop() {
     checkSensors();
     delay(100); // Small delay to avoid excessive pings
 }
+
