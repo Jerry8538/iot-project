@@ -1,0 +1,98 @@
+#include <Arduino.h>
+#include <NewPing.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+#define TRIG_PIN1 5  // Trigger pin for first sensor
+#define ECHO_PIN1 18 // Echo pin for first sensor
+#define TRIG_PIN2 19 // Trigger pin for second sensor
+#define ECHO_PIN2 21 // Echo pin for second sensor
+#define MAX_DISTANCE 200 // Maximum distance in cm
+
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+const char* thingspeak_url = "http://api.thingspeak.com/update?api_key=YOUR_API_KEY&field1=";
+const unsigned long POST_INTERVAL = 15000; // Send data every 15 seconds
+unsigned long lastPostTime = 0;
+
+NewPing sonar1(TRIG_PIN1, ECHO_PIN1, MAX_DISTANCE);
+NewPing sonar2(TRIG_PIN2, ECHO_PIN2, MAX_DISTANCE);
+
+const int THRESHOLD = 30; // Distance threshold in cm
+volatile int count = 0;
+
+bool sensor1_triggered = false;
+bool sensor2_triggered = false;
+unsigned long sensor1_time = 0;
+unsigned long sensor2_time = 0;
+const unsigned long RESET_TIME = 3000; // 3 seconds timeout
+
+void sendDataToThingSpeak() {
+    if (millis() - lastPostTime >= POST_INTERVAL) {
+        HTTPClient http;
+        String url = String(thingspeak_url) + String(count);
+        http.begin(url);
+        int httpResponseCode = http.GET();
+        if (httpResponseCode > 0) {
+            Serial.println("Data sent to ThingSpeak: " + String(count));
+        } else {
+            Serial.println("Error sending data");
+        }
+        http.end();
+        lastPostTime = millis();
+    }
+}
+
+void checkSensors() {
+    int distance1 = sonar1.ping_cm();
+    int distance2 = sonar2.ping_cm();
+    unsigned long current_time = millis();
+    
+    // Detect object within threshold
+    if (distance1 > 0 && distance1 < THRESHOLD && !sensor1_triggered) {
+        sensor1_triggered = true;  // Mark sensor1 as triggered first
+        sensor1_time = current_time;
+    }
+    if (distance2 > 0 && distance2 < THRESHOLD && sensor1_triggered && !sensor2_triggered) {
+        sensor2_triggered = true;  // Mark sensor2 as triggered AFTER sensor1
+        count++;  
+        Serial.println("Incremented Count: " + String(count));
+        sensor1_triggered = sensor2_triggered = false;  // Reset flags
+    }
+
+    // Reverse detection (sensor2 first, then sensor1)
+    if (distance2 > 0 && distance2 < THRESHOLD && !sensor2_triggered) {
+        sensor2_triggered = true;
+        sensor2_time = current_time;
+    }
+    if (distance1 > 0 && distance1 < THRESHOLD && sensor2_triggered && !sensor1_triggered) {
+        sensor1_triggered = true;
+        count--;  
+        Serial.println("Decremented Count: " + String(count));
+        sensor1_triggered = sensor2_triggered = false;
+    }
+
+    // Reset triggers if no second trigger within 3 seconds
+    if (sensor1_triggered && (current_time - sensor1_time > RESET_TIME)) {
+        sensor1_triggered = false;
+    }
+    if (sensor2_triggered && (current_time - sensor2_time > RESET_TIME)) {
+        sensor2_triggered = false;
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.println("Connecting to WiFi...");
+    }
+    Serial.println("Connected to WiFi");
+}
+
+void loop() {
+    checkSensors();
+    sendDataToThingSpeak();
+    delay(100); // Small delay to avoid excessive pings
+}
