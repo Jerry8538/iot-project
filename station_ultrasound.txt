@@ -20,21 +20,26 @@ void checkSensors() {
     int distance1 = sonar1.ping_cm();
     int distance2 = sonar2.ping_cm();
     
-    if (distance1 > 0 && distance1 < THRESHOLD) {
-        sensor1_triggered = true;
+    // Detect object within threshold
+    if (distance1 > 0 && distance1 < THRESHOLD && !sensor1_triggered) {
+        sensor1_triggered = true;  // Mark sensor1 as triggered first
     }
-    if (distance2 > 0 && distance2 < THRESHOLD) {
+    if (distance2 > 0 && distance2 < THRESHOLD && sensor1_triggered && !sensor2_triggered) {
+        sensor2_triggered = true;  // Mark sensor2 as triggered AFTER sensor1
+        count++;  
+        Serial.println("Incremented Count: " + String(count));
+        sensor1_triggered = sensor2_triggered = false;  // Reset flags
+    }
+
+    // Reverse detection (sensor2 first, then sensor1)
+    if (distance2 > 0 && distance2 < THRESHOLD && !sensor2_triggered) {
         sensor2_triggered = true;
     }
-    
-    if (sensor1_triggered && sensor2_triggered) {
-        count++;
-        sensor1_triggered = sensor2_triggered = false;
-        Serial.println("Incremented Count: " + String(count));
-    } else if (sensor2_triggered && sensor1_triggered) {
-        count--;
-        sensor1_triggered = sensor2_triggered = false;
+    if (distance1 > 0 && distance1 < THRESHOLD && sensor2_triggered && !sensor1_triggered) {
+        sensor1_triggered = true;
+        count--;  
         Serial.println("Decremented Count: " + String(count));
+        sensor1_triggered = sensor2_triggered = false;
     }
 }
 
