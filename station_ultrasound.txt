@@ -1,0 +1,48 @@
+#include <Arduino.h>
+#include <NewPing.h>
+
+#define TRIG_PIN1 5  // Trigger pin for first sensor
+#define ECHO_PIN1 18 // Echo pin for first sensor
+#define TRIG_PIN2 19 // Trigger pin for second sensor
+#define ECHO_PIN2 21 // Echo pin for second sensor
+#define MAX_DISTANCE 200 // Maximum distance in cm
+
+NewPing sonar1(TRIG_PIN1, ECHO_PIN1, MAX_DISTANCE);
+NewPing sonar2(TRIG_PIN2, ECHO_PIN2, MAX_DISTANCE);
+
+const int THRESHOLD = 30; // Distance threshold in cm
+volatile int count = 0;
+
+bool sensor1_triggered = false;
+bool sensor2_triggered = false;
+
+void checkSensors() {
+    int distance1 = sonar1.ping_cm();
+    int distance2 = sonar2.ping_cm();
+    
+    if (distance1 > 0 && distance1 < THRESHOLD) {
+        sensor1_triggered = true;
+    }
+    if (distance2 > 0 && distance2 < THRESHOLD) {
+        sensor2_triggered = true;
+    }
+    
+    if (sensor1_triggered && sensor2_triggered) {
+        count++;
+        sensor1_triggered = sensor2_triggered = false;
+        Serial.println("Incremented Count: " + String(count));
+    } else if (sensor2_triggered && sensor1_triggered) {
+        count--;
+        sensor1_triggered = sensor2_triggered = false;
+        Serial.println("Decremented Count: " + String(count));
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+}
+
+void loop() {
+    checkSensors();
+    delay(100); // Small delay to avoid excessive pings
+}
