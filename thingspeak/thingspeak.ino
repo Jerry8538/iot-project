@@ -120,3 +120,5 @@ void loop() {
 	publishData();
 	delay(100); // Small delay to avoid excessive pings
 }
+
+//
