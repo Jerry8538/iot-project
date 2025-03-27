@@ -1,5 +1,5 @@
-#define TRIG_PIN1 5
-#define ECHO_PIN1 18
+#define TRIG_PIN1 32
+#define ECHO_PIN1 35
 #define TRIG_PIN2 19
 #define ECHO_PIN2 21
 #define SOUND_SPD 343
@@ -31,16 +31,13 @@ void checkSensors() {
   double distance1 = reads1();
   double distance2 = reads2();
   unsigned long current_time;
-  // Serial.println(distance1);
-  // Serial.println(distance2);
 
   // sensor1 triggered at current time
-  if (distance1 < THRESHOLD) {
-    sensor1_triggered = true;  // Mark sensor1 as triggered first
+  if (distance1 < THRESHOLD && distance2 > THRESHOLD) { // sensor 1 triggered first?
     Serial.println("S1 first");
 
     // try reading sensor2 for 1 second after current time
-    unsigned long current_time = millis();
+    current_time = millis();
 
     while (millis() - current_time < 1000) {
       distance2 = reads2();
@@ -50,9 +47,7 @@ void checkSensors() {
         break;
       }
     }
-    sensor1_triggered = false;  // Reset flags
-  } else if (distance2 < THRESHOLD) {
-    sensor2_triggered = true;
+  } else if (distance2 < THRESHOLD && distance1 > THRESHOLD) { // sensor 2 triggered first?
     Serial.println("S2 first");
 
     current_time = millis();
@@ -65,7 +60,6 @@ void checkSensors() {
         break;
       }
     }
-    sensor2_triggered = false;
   }
 }
 
