@@ -1,10 +1,10 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-#define TRIG_PIN1 5
-#define ECHO_PIN1 18
-#define TRIG_PIN2 26
-#define ECHO_PIN2 27
+#define TRIG_PIN1 32
+#define ECHO_PIN1 35
+#define TRIG_PIN2 19
+#define ECHO_PIN2 21
 #define SOUND_SPD 343
 
 const char* ssid = "sian";
@@ -13,7 +13,7 @@ const char* pswd = "bowlingbluegoalden21";
 const char* apikey = "C6WHIH80VGQ2HHE4";
 const char* server = "https://api.thingspeak.com/update";
 
-const unsigned long POST_INTERVAL = 15000;	// sets post interval to 15 seconds
+const unsigned long POST_INTERVAL = 5000;	// sets post interval to 15 seconds
 unsigned long lastPostTime = 0;				// to store the last post time in milliseconds
 
 const int THRESHOLD = 30;
@@ -42,19 +42,14 @@ double reads2() {
 void publishData() {
   if (millis() - lastPostTime >= POST_INTERVAL) {
     HTTPClient http;
-    int data = random(0, 100);
-    String url = server + "?apikey=" + apikey + "&field1=" + String(data);
+    //int data = random(0, 100);
+    String url = String(server) + "?apikey=" + String(apikey) + "&field1=" + String(count);
     http.begin(url);
 
     int httpcode = http.GET();
 
     if (httpcode == 200) {
-      String payload = http.getString();
-      if (payload=="0") {
-        Serial.println("Data sent to ThingSpeak: " + String(data));
-      } else {
-				Serial.println("Error: Failed to send data to ThingSpeak.");
-			}
+      Serial.println("Data sent to ThingSpeak: " + String(count));
     } else {
       Serial.println("Error: HTTP request failed with error code: " + String(httpcode));
     }
@@ -107,7 +102,7 @@ void setup() {
   pinMode(TRIG_PIN2, OUTPUT);
   pinMode(ECHO_PIN2, INPUT);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid, pswd);
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
