@@ -12,10 +12,10 @@ const char* pswd = "getpwned";
 const char* server = "mqtt3.thingspeak.com";
 const int port = 1883;
 
-// MQTT device credentials
-const char* mqtt_client_id = "PC8yCQgRBSwwJSU3JA0pFBU";
-const char* mqtt_username = "PC8yCQgRBSwwJSU3JA0pFBU";
-const char* mqtt_password = "iMQUm+sgQRKLcF+2PzyI7RW0";
+// MQTT device credentials: TRAM
+const char* mqtt_client_id = "Kx4DLTQfBwgnNRcvJQ0vAg8";
+const char* mqtt_username = "Kx4DLTQfBwgnNRcvJQ0vAg8";
+const char* mqtt_password = "ElE2ekiipOK58P2CXhDFroqs";
 
 WiFiClient client;
 PubSubClient mqttclient(client);
