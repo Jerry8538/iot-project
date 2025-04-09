@@ -5,8 +5,8 @@
 #define CHANNEL_ID 2895376
 
 // WiFi credentials
-const char* ssid = "sian";
-const char* pswd = "bowlingbluegoalden21";
+const char* ssid = "yash";
+const char* pswd = "getpwned";
 
 // Server and port details
 const char* server = "mqtt3.thingspeak.com";
@@ -168,25 +168,16 @@ void loop() {
 
   mqttclient.loop();
 
-  // if SIR gives HIGH, check after 0.5s to see if it's still HIGH
-  // if yes, then reached station
-  if (digitalRead(SIR) == HIGH) {
-    unsigned long start = millis();
-    double avg = 1;
-    while (millis() - start < 200) {
-      line();
-      // the problem is we're getting random LOW readings
-      // gotta take avg of prev readings
-      avg += digitalRead(SIR);
-      avg /= 2;
-      if (avg < 0.2) {
-        break;
-      }
-    }
-    if (avg > 0.5) {
-      mv(0, 0);
-      delay(random(1000,5000));
-    }
+  // simple logic time
+  if (digitalRead(SIR)) {
+    /*
+    mv(FWSPD, BWSPD);
+    delay(100);
+    */
+    mv(FWSPD,FWSPD);
+    delay(200);
+    mv(0, 0);
+    delay(random(1000, 5000));
   }
   line();
 }
