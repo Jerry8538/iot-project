@@ -99,24 +99,6 @@ void checkSensors() {
 }
 
 
-// Function to handle messages from MQTT subscription
-void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
-  // Print the details of the message that was received to the serial monitor
-  // Serial.print("Message arrived [");
-  // Serial.print(topic);
-  // Serial.print("] ");
-  // for (int i = 0; i < length; i++) {
-  //   Serial.print((char)payload[i]);
-  // }
-  // Serial.println();
-}
-
-// Subscribe to ThingSpeak channel for updates.
-void mqttSubscribe(long subChannelID){
-  String subTopic = "channels/"+String(subChannelID)+"/subscribe";
-  mqttclient.subscribe(subTopic.c_str());
-}
-
 // Publish messages to a ThingSpeak channel.
 int mqttPublish(long pubChannelID, String message) {
   String pubTopic ="channels/" + String(pubChannelID) + "/publish";
@@ -185,23 +167,18 @@ void setup() {
 
   // Configure the MQTT client
   mqttclient.setServer(server, port); 
-  // Set the MQTT message handler function.
-  mqttclient.setCallback(mqttSubscriptionCallback);
-  // Set the buffer to handle the returned JSON. NOTE: A buffer overflow of the message buffer will result in your callback not being invoked.
-  mqttclient.setBufferSize(2048);
 }
 
 
 void loop() {
-  // Reconnect to WiFi if it gets disconnected.
+  // Reconnect to WiFi if it gets disconnected
   if (WiFi.status() != WL_CONNECTED) {
     connectWifi();
   }
 
-  // Connect if MQTT client is not connected and resubscribe to channel updates.
+  // Connect if MQTT client is not connected
   if (!mqttclient.connected()) {
-    mqttConnect(); 
-    mqttSubscribe(CHANNEL_ID);
+    mqttConnect();
   }
 
   mqttclient.loop();
