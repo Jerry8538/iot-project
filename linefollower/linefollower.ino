@@ -11,6 +11,7 @@
 
 #define RIR 13
 #define LIR 27
+#define SIR 35 // detect station
 
 #define FWSPD 100
 #define BWSPD -75
@@ -25,6 +26,8 @@ void setup() {
  pinMode(STBY, OUTPUT);
  pinMode(RIR, INPUT);
  pinMode(LIR, INPUT);
+ pinMode(SIR, INPUT);
+ Serial.begin(9600);
 }
 
 void mv(int lspeed, int rspeed) {
@@ -51,7 +54,7 @@ void mv(int lspeed, int rspeed) {
   }
 }
 
-void loop() {
+void line() {
   int l = digitalRead(LIR);
   int r = digitalRead(RIR);
   if (l == LOW && r == LOW) {
@@ -63,4 +66,28 @@ void loop() {
     // too far right, turn left
     mv(FWSPD, BWSPD);
   }
+}
+
+void loop() {
+  // if SIR gives HIGH, check after 0.5s to see if it's still HIGH
+  // if yes, then reached station
+  if (digitalRead(SIR) == HIGH) {
+    unsigned long start = millis();
+    double avg = 1;
+    while (millis() - start < 200) {
+      line();
+      // the problem is we're getting random LOW readings
+      // gotta take avg of prev readings
+      avg += digitalRead(SIR);
+      avg /= 2;
+      if (avg < 0.2) {
+        break;
+      }
+    }
+    if (avg > 0.5) {
+      mv(0, 0);
+      delay(random(1000,5000));
+    }
+  }
+  line();
 }
