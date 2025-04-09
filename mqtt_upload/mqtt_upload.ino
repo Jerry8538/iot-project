@@ -31,6 +31,7 @@ unsigned long lastPostTime = 0;
 
 const int THRESHOLD = 30;
 volatile int count = 0;
+volatile int prevcount = 0;
 
 bool sensor1_triggered = false;
 bool sensor2_triggered = false;
@@ -135,14 +136,15 @@ void publishData() {
   if ((millis() - lastPostTime) >= POST_INTERVAL) {
     // Create the payload (data) to send
     String payload = "field1=" + String(count);
-
-    // Publish to the MQTT topic
-    if (mqttPublish(CHANNEL_ID, payload)) {
-      Serial.println("Data sent to ThingSpeak: " + String(count));
-    } else {
-      Serial.println("Error: Failed to publish message");
+    if (prevcount != count) {
+      // Publish to the MQTT topic
+      if (mqttPublish(CHANNEL_ID, payload)) {
+        Serial.println("Data sent to ThingSpeak: " + String(count));
+      } else {
+        Serial.println("Error: Failed to publish message");
+      }
     }
-
+    prevcount = count;
     lastPostTime = millis();
   }
 }
