@@ -23,13 +23,6 @@ const char* mqtt_client_id = "PC8yCQgRBSwwJSU3JA0pFBU";
 const char* mqtt_username = "PC8yCQgRBSwwJSU3JA0pFBU";
 const char* mqtt_password = "iMQUm+sgQRKLcF+2PzyI7RW0";
 
-const char* writeapi = "C6WHIH80VGQ2HHE4";
-const char* readapi = "JFYPM9VBVOKB45IJ";
-
-// Topic to publish to (you already have this set)
-// const char* mqtt_topic = "channels/2895376/publish/C6WHIH80VGQ2HHE4"; 
-// Update with your channel ID and API Key
-
 WiFiClient client;
 PubSubClient mqttclient(client);
 
