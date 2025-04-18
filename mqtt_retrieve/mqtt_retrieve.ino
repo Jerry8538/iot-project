@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 
 // ThingSpeak channel ID
 #define CHANNEL_ID 2895376
@@ -38,6 +39,7 @@ PubSubClient mqttclient(client);
 #define FWSPD 100
 #define BWSPD -75
 
+int count = 0;
 
 void mv(int lspeed, int rspeed) {
   digitalWrite(STBY, HIGH);
@@ -78,6 +80,7 @@ void line() {
 }
 
 
+char json[1000];
 // Function to handle messages from MQTT subscription
 void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
   // Print the details of the message that was received to the serial monitor
@@ -87,7 +90,14 @@ void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
-  Serial.println();
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, String((char*)payload));
+
+  if (error) {
+    Serial.println("invalid JSON");
+  } else {
+    count = doc["field1"].as<int>();
+  }
 }
 
 // Subscribe to ThingSpeak channel for updates.
@@ -177,7 +187,7 @@ void loop() {
     mv(FWSPD,FWSPD);
     delay(200);
     mv(0, 0);
-    delay(random(1000, 5000));
+    delay(count * 1000);
   }
   line();
 }
