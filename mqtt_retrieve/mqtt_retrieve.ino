@@ -39,7 +39,13 @@ PubSubClient mqttclient(client);
 #define FWSPD 100
 #define BWSPD -75
 
+
+const unsigned long POST_INTERVAL = 2000;
+unsigned long lastPostTime = 0;
+
 int count = 0;
+int send = 0;           // flag to check whether the data must be sent or not
+int currstation = 3;    // keeps track of the current station the tram is at
 
 void mv(int lspeed, int rspeed) {
   digitalWrite(STBY, HIGH);
@@ -79,6 +85,12 @@ void line() {
   }
 }
 
+
+// Publish messages to a ThingSpeak channel.
+int mqttPublish(long pubChannelID, String message) {
+  String pubTopic ="channels/" + String(pubChannelID) + "/publish";
+  return mqttclient.publish(pubTopic.c_str(), message.c_str());
+}
 
 char json[1000];
 // Function to handle messages from MQTT subscription
@@ -138,6 +150,23 @@ void mqttConnect() {
   }
 }
 
+// to be modified; to publish station number to field 4 of the channel
+void publishStationNumber() {
+  if ((millis() - lastPostTime) >= POST_INTERVAL) {
+    // Create the payload (data) to send
+    String payload = "field4=" + String(currstation);
+    if (send) {
+      send = 0;
+      // Publish to the MQTT topic
+      if (mqttPublish(CHANNEL_ID, payload)) {
+        Serial.println("Data sent to ThingSpeak: " + String(currstation));
+      } else {
+        Serial.println("Error: Failed to publish message");
+      }
+    }
+    lastPostTime = millis();
+  }
+}
 
 void setup() {
   pinMode(PWMA, OUTPUT);
@@ -187,6 +216,8 @@ void loop() {
     mv(FWSPD,FWSPD);
     delay(200);
     mv(0, 0);
+    currstation = (currstation%3)+1;
+    send = 1;
     delay(count * 1000);
   }
   line();

@@ -1,11 +1,15 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 
 #define TRIG_PIN1 32
 #define ECHO_PIN1 35
 #define TRIG_PIN2 19
 #define ECHO_PIN2 21
 #define SOUND_SPD 343
+
+// station number
+#define STATION 3
 
 // ThingSpeak channel ID
 #define CHANNEL_ID 2895376
@@ -19,14 +23,15 @@ const char* server = "mqtt3.thingspeak.com";
 const int port = 1883;
 
 // MQTT device credentials
-const char* mqtt_client_id = "PC8yCQgRBSwwJSU3JA0pFBU";
-const char* mqtt_username = "PC8yCQgRBSwwJSU3JA0pFBU";
-const char* mqtt_password = "iMQUm+sgQRKLcF+2PzyI7RW0";
+const char* mqtt_client_id;
+const char* mqtt_username;
+const char* mqtt_password;
+
 
 WiFiClient client;
 PubSubClient mqttclient(client);
 
-const unsigned long POST_INTERVAL = 5000;
+const unsigned long POST_INTERVAL = 2000;
 unsigned long lastPostTime = 0;
 
 const int THRESHOLD = 30;
@@ -99,6 +104,37 @@ int mqttPublish(long pubChannelID, String message) {
   return mqttclient.publish(pubTopic.c_str(), message.c_str());
 }
 
+int target = 0;
+char json[1000];
+// Function to handle messages from MQTT subscription
+void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
+  // Print the details of the message that was received to the serial monitor
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, String((char*)payload));
+
+  if (error) {
+    Serial.println("invalid JSON");
+  } else {
+    target = doc["field4"].as<int>();
+    if (target==STATION) {  // reset count to zero when the tram reaches a station
+      count = 0;
+      target = 0;
+    }
+  }
+}
+
+// Subscribe to ThingSpeak channel for updates.
+void mqttSubscribe(long subChannelID){
+  String subTopic = "channels/"+String(subChannelID)+"/subscribe";
+  mqttclient.subscribe(subTopic.c_str());
+}
+
 // Connect to WiFi
 void connectWifi() {
   WiFi.begin(ssid, pswd);
@@ -135,7 +171,7 @@ void mqttConnect() {
 void publishData() {
   if ((millis() - lastPostTime) >= POST_INTERVAL) {
     // Create the payload (data) to send
-    String payload = "field1=" + String(count);
+    String payload = "field"+String(STATION)+"=" + String(count);
     if (prevcount != count) {
       // Publish to the MQTT topic
       if (mqttPublish(CHANNEL_ID, payload)) {
@@ -151,6 +187,20 @@ void publishData() {
 
 
 void setup() {
+  if (STATION==1) {
+    mqtt_client_id = "PC8yCQgRBSwwJSU3JA0pFBU";
+    mqtt_username = "PC8yCQgRBSwwJSU3JA0pFBU";
+    mqtt_password = "iMQUm+sgQRKLcF+2PzyI7RW0";
+  } else if (STATION==2) {
+    mqtt_client_id = "BSc3IQgIIi4HJC8VJDgIJx0";
+    mqtt_username = "BSc3IQgIIi4HJC8VJDgIJx0";
+    mqtt_password = "hFtC67ZvNRRo1pwlNZlDiuXH";
+  } else if (STATION==3) {
+    mqtt_client_id = "JDQhDhYqFBojMi4cDAAvKBA";
+    mqtt_username = "JDQhDhYqFBojMi4cDAAvKBA";
+    mqtt_password = "brzD5ZjkxKeOBcbf5c/39ziJ";
+  }
+  
   Serial.begin(9600);
   pinMode(TRIG_PIN1, OUTPUT);
   pinMode(ECHO_PIN1, INPUT);
@@ -161,7 +211,11 @@ void setup() {
   connectWifi();
 
   // Configure the MQTT client
-  mqttclient.setServer(server, port); 
+  mqttclient.setServer(server, port);
+  // Set the MQTT message handler function.
+  mqttclient.setCallback(mqttSubscriptionCallback);
+  // Set the buffer to handle the returned JSON. NOTE: A buffer overflow of the message buffer will result in your callback not being invoked.
+  mqttclient.setBufferSize(2048);
 }
 
 
