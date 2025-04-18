@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Tram Station Display</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+    }
+    #station {
+      font-size: 60px;
+      color: #4CAF50;
+    }
+  </style>
+</head>
+<body>
+  <h1>Current Station</h1>
+  <div id="station">Loading...</div>
+
+  <script>
+    const channelID = 2895376;
+    const fieldNum = 4;
+    const readAPIKey = 'JFYPM9VBVOKB45IJ'; // Add only if your channel is private
+
+    function fetchStation() {
+      fetch(`https://api.thingspeak.com/channels/${channelID}/fields/${fieldNum}/last.json${readAPIKey ? '?api_key=' + readAPIKey : ''}`)
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById("station").textContent = data.field4 || "No Data";
+        })
+        .catch(err => {
+          console.error("Error fetching data:", err);
+          document.getElementById("station").textContent = "Error";
+        });
+    }
+
+    // Initial fetch + periodic updates every 15 seconds (ThingSpeak limit)
+    fetchStation();
+    setInterval(fetchStation, 15000);
+  </script>
+</body>
+</html>
