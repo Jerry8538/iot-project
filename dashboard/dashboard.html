@@ -6,64 +6,151 @@
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      padding-top: 50px;
     }
-    #station {
-      font-size: 60px;
-      color: #4CAF50;
+
+    h1 {
+      margin-top: 30px;
+    }
+
+    #ellipse {
+      width: 500px;
+      height: 300px;
+      border: 2px dashed #999;
+      border-radius: 50%;
+      margin: 40px auto;
+      position: relative;
+    }
+
+    .station {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: #4CAF50;
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+
+    #station1 { top: 0%; left: 50%; }      /* Top center */
+    #station2 { top: 100%; left: 25%; }    /* Bottom left */
+    #station3 { top: 100%; left: 75%; }    /* Bottom right */
+
+    #tram {
+      width: 25px;
+      height: 25px;
+      background-color: red;
+      border-radius: 50%;
+      position: absolute;
+      transition: top 1s ease, left 1s ease;
+      transform: translate(-50%, -50%);
+    }
+
+    iframe {
+      border: 1px solid #ccc;
+      margin: 10px;
     }
   </style>
 </head>
 <body>
   <h1>Current Station</h1>
   <div id="station">Loading...</div>
+
+  <div id="ellipse">
+    <div id="station1" class="station"></div>
+    <div id="station2" class="station"></div>
+    <div id="station3" class="station"></div>
+    <div id="tram"></div>
+  </div>
+
   <h2>Live Passenger Count at Station 1</h2>
-<div style="margin: 20px auto; width: fit-content;">
   <iframe 
-    width="450" 
-    height="260" 
-    style="border: 1px solid #cccccc;" 
+    width="450" height="260" 
     src="https://thingspeak.mathworks.com/channels/2895376/charts/1?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
   </iframe>
-</div>
-<h2>Live Passenger Count at Station 2</h2>
-<div style="margin: 20px auto; width: fit-content;">
+
+  <h2>Live Passenger Count at Station 2</h2>
   <iframe 
-    width="450" 
-    height="260" 
-    style="border: 1px solid #cccccc;" 
+    width="450" height="260" 
     src="https://thingspeak.mathworks.com/channels/2895376/charts/2?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
   </iframe>
-</div>
-<h2>Live Passenger Count at Station 3</h2>
-<div style="margin: 20px auto; width: fit-content;">
+
+  <h2>Live Passenger Count at Station 3</h2>
   <iframe 
-    width="450" 
-    height="260" 
-    style="border: 1px solid #cccccc;" 
+    width="450" height="260" 
     src="https://thingspeak.mathworks.com/channels/2895376/charts/3?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
   </iframe>
-</div>
+
   <script>
     const channelID = 2895376;
-    const fieldNum = 4;
-    const readAPIKey = 'JFYPM9VBVOKB45IJ'; // Add only if your channel is private
+    const readAPIKey = 'JFYPM9VBVOKB45IJ';
+  
+    const stationPositions = {
+      "1": { top: 0, left: 250 },     // Top center
+      "2": { top: 300, left: 125 },   // Bottom left
+      "3": { top: 300, left: 375 }    // Bottom right
+    };
 
-    function fetchStation() {
-      fetch(`https://api.thingspeak.com/channels/${channelID}/fields/${fieldNum}/last.json${readAPIKey ? '?api_key=' + readAPIKey : ''}`)
-        .then(response => response.json())
-        .then(data => {
-          document.getElementById("station").textContent = data.field4 || "No Data";
-        })
-        .catch(err => {
-          console.error("Error fetching data:", err);
-          document.getElementById("station").textContent = "Error";
-        });
+    // Midpoints on the ellipse perimeter
+    const midpointPositions = {
+      "1": { top: 150, left: 0 },     // Left middle point
+      "2": { top: 300, left: 250 },   // Bottom center point
+      "3": { top: 150, left: 500 }    // Right middle point
+    };
+  
+    const tram = document.getElementById("tram");
+    let lastStation = null;
+    let timeoutId = null;
+
+    async function fetchStationData() {
+      try {
+        const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds/last.json?api_key=${readAPIKey}`);
+        const data = await res.json();
+        console.log(data);
+        const currentStation = data.field4?.trim();
+        const counts = {
+          "1": parseInt(data.field1) || 1,
+          "2": parseInt(data.field2) || 1,
+          "3": parseInt(data.field3) || 1
+        };
+        console.log(counts);
+        if (currentStation && currentStation !== lastStation) {
+          // Clear any existing timeout
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          // Update display and move tram directly to new station
+          document.getElementById("station").textContent = `Station ${currentStation}`;
+          const pos = stationPositions[currentStation];
+          tram.style.top = pos.top + "px";
+          tram.style.left = pos.left + "px";
+          
+          // Start new countdown for this station
+          lastStation = currentStation;
+          timeoutId = setTimeout(() => {
+            moveToMidpoint(currentStation);
+          }, counts[currentStation] * 1000);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        document.getElementById("station").textContent = "Error";
+      }
+
+      // Continue polling
+      setTimeout(fetchStationData, 5000);
     }
 
-    // Initial fetch + periodic updates every 15 seconds (ThingSpeak limit)
-    fetchStation();
-    setInterval(fetchStation, 15000);
+    function moveToMidpoint(currentStation) {
+      // Move to predefined midpoint on ellipse perimeter
+      const midpoint = midpointPositions[currentStation];
+      tram.style.top = midpoint.top + "px";
+      tram.style.left = midpoint.left + "px";
+      document.getElementById("station").textContent = "In Transit";
+    }
+
+    // Initial load
+    fetchStationData();
   </script>
+  
 </body>
 </html>
