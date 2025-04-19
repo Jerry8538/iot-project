@@ -17,7 +17,33 @@
 <body>
   <h1>Current Station</h1>
   <div id="station">Loading...</div>
-
+  <h2>Live Passenger Count at Station 1</h2>
+<div style="margin: 20px auto; width: fit-content;">
+  <iframe 
+    width="450" 
+    height="260" 
+    style="border: 1px solid #cccccc;" 
+    src="https://thingspeak.mathworks.com/channels/2895376/charts/1?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
+  </iframe>
+</div>
+<h2>Live Passenger Count at Station 2</h2>
+<div style="margin: 20px auto; width: fit-content;">
+  <iframe 
+    width="450" 
+    height="260" 
+    style="border: 1px solid #cccccc;" 
+    src="https://thingspeak.mathworks.com/channels/2895376/charts/2?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
+  </iframe>
+</div>
+<h2>Live Passenger Count at Station 3</h2>
+<div style="margin: 20px auto; width: fit-content;">
+  <iframe 
+    width="450" 
+    height="260" 
+    style="border: 1px solid #cccccc;" 
+    src="https://thingspeak.mathworks.com/channels/2895376/charts/3?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
+  </iframe>
+</div>
   <script>
     const channelID = 2895376;
     const fieldNum = 4;
