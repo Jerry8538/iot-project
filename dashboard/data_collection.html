@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Tram Station Display</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 30px;
+    }
+    #ellipse {
+      width: 500px;
+      height: 300px;
+      border: 2px dashed #999;
+      border-radius: 50%;
+      margin: 40px auto;
+      position: relative;
+    }
+    .station {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: #4CAF50;
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+    #station1 { top: 0%; left: 50%; }
+    #station2 { top: 100%; left: 25%; }
+    #station3 { top: 100%; left: 75%; }
+    #tram {
+      width: 25px;
+      height: 25px;
+      background-color: red;
+      border-radius: 50%;
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+    iframe {
+      border: 1px solid #ccc;
+      margin: 10px;
+    }
+    #debugPanel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <h1>Current Station</h1>
+  <div id="station">Loading...</div>
+
+  <div id="ellipse">
+    <div id="station1" class="station">1</div>
+    <div id="station2" class="station">2</div>
+    <div id="station3" class="station">3</div>
+    <div id="tram"></div>
+  </div>
+
+  <h2>Live Passenger Count at Station 1</h2>
+  <iframe width="450" height="260" src="https://thingspeak.mathworks.com/channels/2895376/charts/1?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line"></iframe>
+
+  <h2>Live Passenger Count at Station 2</h2>
+  <iframe width="450" height="260" src="https://thingspeak.mathworks.com/channels/2895376/charts/2?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%23FF0000&dynamic=true&type=line"></iframe>
+
+  <h2>Live Passenger Count at Station 3</h2>
+  <iframe width="450" height="260" src="https://thingspeak.mathworks.com/channels/2895376/charts/3?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%230000FF&dynamic=true&type=line"></iframe>
+
+  <div style="margin: 30px auto; text-align: center;">
+    <button id="importData" style="margin: 10px; padding: 10px;">Initialize/Import CSV</button>
+    <button id="exportData" style="margin: 10px; padding: 10px;">Export Full CSV</button>
+  </div>
+  <div id="debugPanel">
+    <button onclick="debugData()">Debug Data</button>
+    <div id="debugOutput"></div>
+  </div>
+  <h2>Time of Day Passenger Trends</h2>
+  <img src="time_of_day_plot.png" alt="Time of Day Plot" width="600" style="display: block; margin: 20px auto;"/>
+  <p style="text-align: center; font-style: italic;">These are the observations for three days entries:18th,19th,20th</p>
+  
+<script>
+// Constants
+const channelID = 2895376;
+const readAPIKey = 'JFYPM9VBVOKB45IJ';
+const DATA_KEY = 'tramSystemData_v3';
+
+// Ellipse config
+const a = 250;
+const b = 150;
+const centerX = 250;
+const centerY = 150;
+
+const stationAngles = {
+  "1": -Math.PI / 2,
+  "2": Math.PI / 2,
+  "3": Math.PI * 0.75
+};
+
+const betweenStationPoints = {
+  "1-2": Math.PI,
+  "2-3": Math.PI * 1.15,
+  "3-1": Math.PI * 1.75
+};
+
+// State
+let lastStation = null;
+let currentStation = null;
+let systemData = [];
+let previousCounts = { "1": 0, "2": 0, "3": 0 };
+
+// DOM references
+const tram = document.getElementById("tram");
+
+// Utilities
+function getEllipsePosition(theta) {
+  return {
+    x: centerX + a * Math.cos(theta),
+    y: centerY + b * Math.sin(theta)
+  };
+}
+
+function getBetweenAngle(from, to) {
+  const key = `${from}-${to}`;
+  if (betweenStationPoints[key]) return betweenStationPoints[key];
+  return betweenStationPoints[`${to}-${from}`];
+}
+
+function updateTramPosition(station) {
+  const pos = getEllipsePosition(stationAngles[station]);
+  tram.style.left = pos.x + "px";
+  tram.style.top = pos.y + "px";
+}
+
+function setTramBetween(last, current) {
+  const theta = getBetweenAngle(last, current);
+  const pos = getEllipsePosition(theta);
+  tram.style.left = pos.x + "px";
+  tram.style.top = pos.y + "px";
+  document.getElementById("station").textContent = "In Transit";
+}
+
+// Debug info
+function debugData() {
+  const debugInfo = [
+    `Entries: ${systemData.length}`,
+    `Last Entry: ${systemData[systemData.length-1]?.timestamp || 'none'}`,
+    `Last Change: ${systemData[systemData.length-1]?.change || 'none'}`,
+    `Storage Size: ${localStorage.getItem(DATA_KEY)?.length || 0} bytes`,
+    `Last Updated: ${new Date().toLocaleString()}`
+  ].join('<br>');
+  document.getElementById('debugOutput').innerHTML = debugInfo;
+}
+
+// Data init/load/save
+function initializeData() {
+  const savedData = localStorage.getItem(DATA_KEY);
+  if (savedData) {
+    try {
+      const parsed = JSON.parse(savedData);
+      systemData = Array.isArray(parsed.entries) ? parsed.entries : [];
+      previousCounts = parsed.previousCounts || { "1": 0, "2": 0, "3": 0 };
+    } catch (e) {
+      console.error("Error parsing saved data:", e);
+      systemData = [];
+    }
+  }
+}
+
+function saveData() {
+  try {
+    const dataToSave = {
+      entries: systemData,
+      previousCounts,
+      lastSaved: new Date().toISOString()
+    };
+    localStorage.setItem(DATA_KEY, JSON.stringify(dataToSave));
+  } catch (e) {
+    console.error("Error saving data:", e);
+    if (e.name === 'QuotaExceededError') {
+      alert("Storage full! Exporting and clearing data...");
+      exportCSV();
+      systemData = [];
+      saveData();
+    }
+  }
+}
+
+// Import/export CSV
+document.getElementById('importData').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const csv = e.target.result;
+      const newEntries = [];
+      
+      csv.split('\n').slice(1).forEach(row => {
+        const [station, timestamp, change] = row.split(',');
+        if (station && timestamp && change) {
+          newEntries.push({
+            station: station.trim(),
+            timestamp: timestamp.trim(),
+            change: parseInt(change.trim())
+          });
+        }
+      });
+
+      systemData = [...newEntries, ...systemData]
+        .filter((v,i,a) => a.findIndex(e => 
+          e.timestamp === v.timestamp && e.station === v.station) === i
+        )
+        .sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      saveData();
+      alert(`Imported ${newEntries.length} records. Total records: ${systemData.length}`);
+    };
+    
+    reader.readAsText(file);
+  };
+  
+  input.click();
+});
+
+function exportCSV() {
+  if (systemData.length === 0) {
+    alert("No data to export!");
+    return;
+  }
+  
+  const csvContent = [
+    'Station,Timestamp,Change',
+    ...systemData.map(({ station, timestamp, change }) => 
+      `${station},${timestamp},${change}`
+    )
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tram_changes_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportData').addEventListener('click', exportCSV);
+
+// Main logic
+async function fetchStationData() {
+  try {
+    const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds/last.json?api_key=${readAPIKey}`);
+    const data = await res.json();
+    const station = data.field4?.trim();
+    const counts = {
+      "1": parseInt(data.field1) || 0,
+      "2": parseInt(data.field2) || 0,
+      "3": parseInt(data.field3) || 0
+    };
+
+    Object.entries(counts).forEach(([s, count]) => {
+      const prev = previousCounts[s];
+      if (count !== prev) {
+        systemData.push({
+          station: s,
+          timestamp: new Date().toISOString(),
+          change: count > prev ? 1 : -1
+        });
+      }
+    });
+
+    previousCounts = { ...counts };
+    saveData();
+
+    if (station && station !== currentStation) {
+      lastStation = currentStation;
+      currentStation = station;
+
+      updateTramPosition(currentStation);
+      document.getElementById("station").textContent = `Station ${currentStation}`;
+
+      setTimeout(() => {
+        if (currentStation === station && lastStation) {
+          setTramBetween(lastStation, currentStation);
+        }
+      }, counts[station] * 1000);
+    }
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    document.getElementById("station").textContent = "Error";
+  }
+
+  setTimeout(fetchStationData, 5000);
+}
+
+// Start up
+initializeData();
+fetchStationData();
+const initialPos = getEllipsePosition(stationAngles["1"]);
+tram.style.left = initialPos.x + "px";
+tram.style.top = initialPos.y + "px";
+</script>
+</body>
+</html>

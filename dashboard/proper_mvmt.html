@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Tram Station Display</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 30px;
+    }
+
+    #ellipse {
+      width: 500px;
+      height: 300px;
+      border: 2px dashed #999;
+      border-radius: 50%;
+      margin: 40px auto;
+      position: relative;
+    }
+
+    .station {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: #4CAF50;
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+
+    #station1 { top: 0%; left: 50%; }      /* Top center */
+    #station2 { top: 100%; left: 25%; }    /* Bottom left */
+    #station3 { top: 100%; left: 75%; }    /* Bottom right */
+
+    #tram {
+      width: 25px;
+      height: 25px;
+      background-color: red;
+      border-radius: 50%;
+      position: absolute;
+      transition: top 1s ease, left 1s ease;
+      transform: translate(-50%, -50%);
+    }
+
+    iframe {
+      border: 1px solid #ccc;
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Current Station</h1>
+  <div id="station">Loading...</div>
+
+  <div id="ellipse">
+    <div id="station1" class="station">1</div>
+    <div id="station2" class="station">2</div>
+    <div id="station3" class="station">3</div>
+    <div id="tram"></div>
+  </div>
+
+  <h2>Live Passenger Count at Station 1</h2>
+  <iframe 
+    width="450" height="260" 
+    src="https://thingspeak.mathworks.com/channels/2895376/charts/1?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%234CAF50&dynamic=true&type=line">
+  </iframe>
+
+  <h2>Live Passenger Count at Station 2</h2>
+  <iframe 
+    width="450" height="260" 
+    src="https://thingspeak.mathworks.com/channels/2895376/charts/2?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%23FF0000&dynamic=true&type=line">
+  </iframe>
+
+  <h2>Live Passenger Count at Station 3</h2>
+  <iframe 
+    width="450" height="260" 
+    src="https://thingspeak.mathworks.com/channels/2895376/charts/3?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%230000FF&dynamic=true&type=line">
+  </iframe>
+
+  <script>
+    const channelID = 2895376;
+    const readAPIKey = 'JFYPM9VBVOKB45IJ';
+    
+    // Ellipse dimensions
+    const a = 250;  // horizontal radius
+    const b = 150;  // vertical radius
+    const centerX = 250;
+    const centerY = 150;
+    
+    const stationAngles = {
+      "1": -Math.PI/2,   // Top (270°)
+      "2": Math.PI/2,    // Bottom (90°)
+      "3": Math.PI*0.75  // Right side (135°)
+    };
+    
+    const midpointAngles = {
+      "1": Math.PI,       // Left (180°)
+      "2": Math.PI*0.4,   // Bottom-left (72°)
+      "3": Math.PI*1.6    // Top-right (288°)
+    };
+    
+    const tram = document.getElementById("tram");
+    let currentStation = null;
+    let animationFrame = null;
+    
+    function getEllipsePosition(theta) {
+      return {
+        x: centerX + a * Math.cos(theta),
+        y: centerY + b * Math.sin(theta)
+      };
+    }
+    
+    function animateMovement(startAngle, endAngle, duration = 2000) {
+      let startTime = null;
+      
+      const animate = (timestamp) => {
+        if (!startTime) startTime = timestamp;
+        const progress = (timestamp - startTime) / duration;
+        
+        if (progress < 1) {
+          const currentAngle = startAngle + (endAngle - startAngle) * progress;
+          const pos = getEllipsePosition(currentAngle);
+          tram.style.left = pos.x + "px";
+          tram.style.top = pos.y + "px";
+          animationFrame = requestAnimationFrame(animate);
+        } else {
+          // Final position
+          const pos = getEllipsePosition(endAngle);
+          tram.style.left = pos.x + "px";
+          tram.style.top = pos.y + "px";
+        }
+      };
+      
+      animationFrame = requestAnimationFrame(animate);
+    }
+    
+    async function fetchStationData() {
+      try {
+        const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds/last.json?api_key=${readAPIKey}`);
+        const data = await res.json();
+        const currentStation = data.field4?.trim();
+        const counts = {
+          "1": parseInt(data.field1) || 1,
+          "2": parseInt(data.field2) || 1,
+          "3": parseInt(data.field3) || 1
+        };
+    
+        if (currentStation && currentStation !== lastStation) {
+          if (animationFrame) {
+            cancelAnimationFrame(animationFrame);
+          }
+          
+          // Move directly to new station
+          const pos = getEllipsePosition(stationAngles[currentStation]);
+          tram.style.left = pos.x + "px";
+          tram.style.top = pos.y + "px";
+          document.getElementById("station").textContent = `Station ${currentStation}`;
+          
+          // Start countdown for this station
+          setTimeout(() => {
+            // Move to midpoint after delay
+            const startAngle = stationAngles[currentStation];
+            const endAngle = midpointAngles[currentStation];
+            document.getElementById("station").textContent = "In Transit";
+            animateMovement(startAngle, endAngle);
+          }, counts[currentStation] * 1000);
+          
+          lastStation = currentStation;
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        document.getElementById("station").textContent = "Error";
+      }
+      
+      setTimeout(fetchStationData, 5000);
+    }
+    
+    // Initial load
+    fetchStationData();
+    </script>
+  
+</body>
+</html>
