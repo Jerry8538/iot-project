@@ -35,7 +35,6 @@
       background-color: red;
       border-radius: 50%;
       position: absolute;
-      transition: top 1s ease, left 1s ease;
       transform: translate(-50%, -50%);
     }
     iframe {
@@ -74,46 +73,80 @@
   <h2>Live Passenger Count at Station 3</h2>
   <iframe width="450" height="260" src="https://thingspeak.mathworks.com/channels/2895376/charts/3?api_key=JFYPM9VBVOKB45IJ&bgcolor=%23ffffff&color=%230000FF&dynamic=true&type=line"></iframe>
 
-  <button id="importData" style="margin: 20px; padding: 10px;">Initialize/Import CSV</button>
-  <button id="exportData" style="margin: 20px; padding: 10px;">Export Full CSV</button>
-
+  <div style="margin: 30px auto; text-align: center;">
+    <button id="importData" style="margin: 10px; padding: 10px;">Initialize/Import CSV</button>
+    <button id="exportData" style="margin: 10px; padding: 10px;">Export Full CSV</button>
+  </div>
   <div id="debugPanel">
     <button onclick="debugData()">Debug Data</button>
     <div id="debugOutput"></div>
   </div>
-
+  <h2>Time of Day Passenger Trends</h2>
+  <img src="time_of_day_plot.png" alt="Time of Day Plot" width="600" style="display: block; margin: 20px auto;"/>
+  <p style="text-align: center; font-style: italic;">These are the observations for three days entries:18th,19th,20th</p>
+  
 <script>
 // Constants
 const channelID = 2895376;
 const readAPIKey = 'JFYPM9VBVOKB45IJ';
-const DATA_KEY = 'tramSystemData_v3'; // Updated version key
+const DATA_KEY = 'tramSystemData_v3';
 
-// Ellipse configuration
-const a = 250;  // horizontal radius
-const b = 150;  // vertical radius
+// Ellipse config
+const a = 250;
+const b = 150;
 const centerX = 250;
 const centerY = 150;
 
 const stationAngles = {
-  "1": -Math.PI/2,   // Top (270°)
-  "2": Math.PI/2,    // Bottom (90°)
-  "3": Math.PI*0.75  // Right side (135°)
+  "1": -Math.PI / 2,
+  "2": Math.PI / 2,
+  "3": Math.PI * 0.75
 };
 
-const midpointAngles = {
-  "1": Math.PI,       // Left (180°)
-  "2": Math.PI*0.4,   // Bottom-left (72°)
-  "3": Math.PI*1.6    // Top-right (288°)
+const betweenStationPoints = {
+  "1-2": Math.PI,
+  "2-3": Math.PI * 1.15,
+  "3-1": Math.PI * 1.75
 };
 
-// State variables
+// State
 let lastStation = null;
-let animationFrame = null;
 let currentStation = null;
 let systemData = [];
 let previousCounts = { "1": 0, "2": 0, "3": 0 };
 
-// Debug functions
+// DOM references
+const tram = document.getElementById("tram");
+
+// Utilities
+function getEllipsePosition(theta) {
+  return {
+    x: centerX + a * Math.cos(theta),
+    y: centerY + b * Math.sin(theta)
+  };
+}
+
+function getBetweenAngle(from, to) {
+  const key = `${from}-${to}`;
+  if (betweenStationPoints[key]) return betweenStationPoints[key];
+  return betweenStationPoints[`${to}-${from}`];
+}
+
+function updateTramPosition(station) {
+  const pos = getEllipsePosition(stationAngles[station]);
+  tram.style.left = pos.x + "px";
+  tram.style.top = pos.y + "px";
+}
+
+function setTramBetween(last, current) {
+  const theta = getBetweenAngle(last, current);
+  const pos = getEllipsePosition(theta);
+  tram.style.left = pos.x + "px";
+  tram.style.top = pos.y + "px";
+  document.getElementById("station").textContent = "In Transit";
+}
+
+// Debug info
 function debugData() {
   const debugInfo = [
     `Entries: ${systemData.length}`,
@@ -125,7 +158,7 @@ function debugData() {
   document.getElementById('debugOutput').innerHTML = debugInfo;
 }
 
-// Initialize or load existing data
+// Data init/load/save
 function initializeData() {
   const savedData = localStorage.getItem(DATA_KEY);
   if (savedData) {
@@ -140,7 +173,6 @@ function initializeData() {
   }
 }
 
-// Save data to localStorage
 function saveData() {
   try {
     const dataToSave = {
@@ -160,7 +192,7 @@ function saveData() {
   }
 }
 
-// CSV Import Handler
+// Import/export CSV
 document.getElementById('importData').addEventListener('click', () => {
   const input = document.createElement('input');
   input.type = 'file';
@@ -201,7 +233,6 @@ document.getElementById('importData').addEventListener('click', () => {
   input.click();
 });
 
-// CSV Export
 function exportCSV() {
   if (systemData.length === 0) {
     alert("No data to export!");
@@ -228,28 +259,25 @@ function exportCSV() {
 
 document.getElementById('exportData').addEventListener('click', exportCSV);
 
-// Main data collection function
+// Main logic
 async function fetchStationData() {
   try {
     const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds/last.json?api_key=${readAPIKey}`);
     const data = await res.json();
-    const currentStation = data.field4?.trim();
+    const station = data.field4?.trim();
     const counts = {
       "1": parseInt(data.field1) || 0,
       "2": parseInt(data.field2) || 0,
       "3": parseInt(data.field3) || 0
     };
 
-    // Track passenger count changes
-    Object.entries(counts).forEach(([station, count]) => {
-      const previous = previousCounts[station];
-      if (count !== previous) {
-        const change = count > previous ? 1 : -1; // +1 for increment, -1 for decrement
-        
+    Object.entries(counts).forEach(([s, count]) => {
+      const prev = previousCounts[s];
+      if (count !== prev) {
         systemData.push({
-          station,
+          station: s,
           timestamp: new Date().toISOString(),
-          change
+          change: count > prev ? 1 : -1
         });
       }
     });
@@ -257,23 +285,18 @@ async function fetchStationData() {
     previousCounts = { ...counts };
     saveData();
 
-    // Handle station changes
-    if (currentStation && currentStation !== lastStation) {
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-      
-      const pos = getEllipsePosition(stationAngles[currentStation]);
-      tram.style.left = pos.x + "px";
-      tram.style.top = pos.y + "px";
-      document.getElementById("station").textContent = `Station ${currentStation}`;
-      
-      setTimeout(() => {
-        const startAngle = stationAngles[currentStation];
-        const endAngle = midpointAngles[currentStation];
-        document.getElementById("station").textContent = "In Transit";
-        animateMovement(startAngle, endAngle);
-      }, counts[currentStation] * 1000);
-      
+    if (station && station !== currentStation) {
       lastStation = currentStation;
+      currentStation = station;
+
+      updateTramPosition(currentStation);
+      document.getElementById("station").textContent = `Station ${currentStation}`;
+
+      setTimeout(() => {
+        if (currentStation === station && lastStation) {
+          setTramBetween(lastStation, currentStation);
+        }
+      }, counts[station] * 1000);
     }
   } catch (err) {
     console.error("Error fetching data:", err);
@@ -283,42 +306,9 @@ async function fetchStationData() {
   setTimeout(fetchStationData, 5000);
 }
 
-// Ellipse movement functions
-function getEllipsePosition(theta) {
-  return {
-    x: centerX + a * Math.cos(theta),
-    y: centerY + b * Math.sin(theta)
-  };
-}
-
-function animateMovement(startAngle, endAngle, duration = 2000) {
-  let startTime = null;
-  
-  const animate = (timestamp) => {
-    if (!startTime) startTime = timestamp;
-    const progress = (timestamp - startTime) / duration;
-    
-    if (progress < 1) {
-      const currentAngle = startAngle + (endAngle - startAngle) * progress;
-      const pos = getEllipsePosition(currentAngle);
-      tram.style.left = pos.x + "px";
-      tram.style.top = pos.y + "px";
-      animationFrame = requestAnimationFrame(animate);
-    } else {
-      const pos = getEllipsePosition(endAngle);
-      tram.style.left = pos.x + "px";
-      tram.style.top = pos.y + "px";
-    }
-  };
-  
-  animationFrame = requestAnimationFrame(animate);
-}
-
-// Initialize everything
+// Start up
 initializeData();
 fetchStationData();
-
-// Initial tram position
 const initialPos = getEllipsePosition(stationAngles["1"]);
 tram.style.left = initialPos.x + "px";
 tram.style.top = initialPos.y + "px";
