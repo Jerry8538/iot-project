@@ -9,7 +9,7 @@
 #define SOUND_SPD 343
 
 // station number
-#define STATION 3
+#define STATION 2
 
 // ThingSpeak channel ID
 #define CHANNEL_ID 2895376
@@ -108,13 +108,6 @@ int target = 0;
 char json[1000];
 // Function to handle messages from MQTT subscription
 void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
-  // Print the details of the message that was received to the serial monitor
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, String((char*)payload));
 
@@ -123,6 +116,7 @@ void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
   } else {
     target = doc["field4"].as<int>();
     if (target==STATION) {  // reset count to zero when the tram reaches a station
+      Serial.println("tram reached station " + String(STATION));
       count = 0;
       target = 0;
     }
@@ -133,6 +127,7 @@ void mqttSubscriptionCallback(char* topic, byte* payload, unsigned int length) {
 void mqttSubscribe(long subChannelID){
   String subTopic = "channels/"+String(subChannelID)+"/subscribe";
   mqttclient.subscribe(subTopic.c_str());
+  Serial.println("subscribed");
 }
 
 // Connect to WiFi
@@ -215,7 +210,7 @@ void setup() {
   // Set the MQTT message handler function.
   mqttclient.setCallback(mqttSubscriptionCallback);
   // Set the buffer to handle the returned JSON. NOTE: A buffer overflow of the message buffer will result in your callback not being invoked.
-  mqttclient.setBufferSize(2048);
+  mqttclient.setBufferSize(4048);
 }
 
 
@@ -225,9 +220,10 @@ void loop() {
     connectWifi();
   }
 
-  // Connect if MQTT client is not connected
+  // Connect if MQTT client is not connected and resubscribe
   if (!mqttclient.connected()) {
     mqttConnect();
+    mqttSubscribe(CHANNEL_ID);
   }
 
   mqttclient.loop();

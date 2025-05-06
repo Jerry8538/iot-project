@@ -36,8 +36,8 @@ PubSubClient mqttclient(client);
 #define LIR 27
 #define SIR 35 // detect station
 
-#define FWSPD 100
-#define BWSPD -75
+#define FWSPD 110
+#define BWSPD -90
 
 
 const unsigned long POST_INTERVAL = 2000;
@@ -220,6 +220,8 @@ void loop() {
     send = 1;
     publishStationNumber();
     delay(count * 1000);
+=======
+>>>>>>> 163b3a905313b764e4570dc3086c3bd5d484921e
   }
   line();
 }
