@@ -179,6 +179,7 @@ void setup() {
   pinMode(RIR, INPUT);
   pinMode(LIR, INPUT);
   pinMode(SIR, INPUT);
+  pinMode(2, OUTPUT);
   Serial.begin(9600);
 
   delay(2000);
@@ -207,17 +208,17 @@ void loop() {
 
   mqttclient.loop();
 
+  digitalWrite(2, HIGH);
+
   // simple logic time
   if (digitalRead(SIR)) {
-    /*
-    mv(FWSPD, BWSPD);
-    delay(100);
-    */
     mv(FWSPD,FWSPD);
     delay(200);
+    
     mv(0, 0);
     currstation = (currstation%3)+1;
     send = 1;
+    publishStationNumber();
     delay(count * 1000);
   }
   line();
